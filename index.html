@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 발주 시스템 Pro v9.9 (초고속 입력형 + 버그수정)</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: #f8fafc; color: #1e293b; padding: 15px; font-size: 13px; }
+        
+        .panel { background: #fff; padding: 15px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: white; }
+        
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 15px; }
+        .card { background: white; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; border-left: 5px solid #cbd5e1; }
+        .card.blue { border-left-color: #3b82f6; }
+        .card.green { border-left-color: #10b981; }
+        .card.orange { border-left-color: #f97316; }
+        .card h3 { font-size: 12px; color: #64748b; margin-bottom: 5px; }
+        .card .value { font-size: 22px; font-weight: bold; }
+
+        .main-container { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        @media (min-width: 1200px) { .main-container { grid-template-columns: 1.4fr 0.6fr; } }
+
+        .btn { padding: 8px 12px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: white; display: inline-block; text-align: center; }
+        .btn-primary { background: #2563eb; } .btn-success { background: #10b981; } .btn-danger { background: #ef4444; } .btn-gray { background: #64748b; }
+        
+        table { width: 100%; border-collapse: collapse; text-align: center; font-size: 12px; }
+        th { background: #f1f5f9; padding: 8px 4px; font-weight: 600; border: 1px solid #cbd5e1; position: sticky; top: 0; }
+        td { padding: 4px; border: 1px solid #cbd5e1; background: #fff; vertical-align: middle; }
+        input[type="text"], input[type="number"], input[type="date"], select { border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px; outline: none; }
+        input:focus, select:focus { border-color: #2563eb; background: #eff6ff; }
+        
+        .excel-table td { padding: 2px; }
+        .excel-table input, .excel-table select { width: 100%; border: none; border-radius: 0; background: transparent; }
+        
+        .res-min { background: #f0f9ff !important; color: #0284c7; font-weight: bold; }
+        .res-rec { background: #fef2f2 !important; color: #dc2626; font-weight: bold; font-size: 14px; }
+        .res-max { background: #fff7ed !important; color: #ea580c; font-weight: bold; }
+
+        .src-tag { display: block; font-size: 9px; padding: 1px 4px; border-radius: 3px; margin-top: 2px; font-weight: 600; }
+        .src-direct { background: #dcfce7; color: #166534; }
+        .src-fallback { background: #fef3c7; color: #92400e; }
+        .src-none { background: #f1f5f9; color: #94a3b8; }
+
+        .tend-badge { padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: bold; display: inline-block; }
+        .tend-over { background: #fee2e2; color: #b91c1c; }
+        .tend-under { background: #dbeafe; color: #1d4ed8; }
+        .tend-volatile { background: #fef3c7; color: #b45309; }
+        .tend-stable { background: #dcfce7; color: #166534; }
+        .tend-unknown { background: #f1f5f9; color: #94a3b8; }
+
+        .table-wrapper { max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; }
+        .chart-wrapper { height: 200px; }
+        
+        .controls-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .slider-container { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; }
+        input[type="range"] { flex: 1; cursor: pointer; }
+        .radio-group { display: flex; gap: 15px; }
+        .radio-group label { cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 4px; color: #334155; }
+        
+        .hide-col { display: none !important; }
+        .volatility-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-top: 10px; }
+        .vol-item { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; text-align: center; }
+        .vol-item .cat-name { font-weight: 600; font-size: 11px; color: #475569; margin-bottom: 4px; }
+        .vol-item .std-val { font-size: 15px; font-weight: bold; }
+        .std-safe { color: #10b981; } .std-warn { color: #f59e0b; } .std-danger { color: #ef4444; }
+
+        .rec-badge { background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 12px; margin-left: 10px; border: 1px solid #bbf7d0; cursor: pointer;}
+        .rec-badge:hover { background: #bbf7d0; }
+        .day-badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 2px; }
+        .day-work { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+        .day-holi { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }
+    </style>
+</head>
+<body>
+
+    <div class="panel header">
+        <div>
+            <h1 style="font-size: 18px;">🛡️ 제조사 생산 발주량 산출 시스템 v10.0 (결품 0% 보장형)</h1>
+            <p style="font-size: 11px; opacity: 0.9;">예정량 대비 확정량 편차 데이터 누적 → 부대별 성향 분석 → 결품 없는 최적 생산 발주량 산출</p>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <input type="file" id="excelUpload" accept=".xlsx, .csv" style="display:none;">
+            <button class="btn btn-primary" onclick="document.getElementById('excelUpload').click()">📁 원본 데이터 업로드</button>
+            <button class="btn btn-danger" onclick="clearData()">전체 데이터 초기화</button>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <label style="font-weight: bold; color: #1e3a8a; font-size: 14px;">📊 대시보드 기준 부대:</label>
+        <select id="dashUnit" onchange="syncUnitFilters(this.value)" style="width: 150px; font-weight: bold;"></select>
+
+        <label style="font-weight: bold; color: #1e3a8a; font-size: 14px; margin-left:10px;">📆 기준 연도:</label>
+        <select id="baseYear" onchange="applyBaseYear(this.value)" style="width: 100px; font-weight: bold;"></select>
+        <span style="font-size:11px; color:#64748b;">엑셀의 월/일을 이 연도로 통일 인식합니다 (평/휴일 판정용)</span>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="card blue"><h3>누적 데이터 분석 건수</h3><div class="value" id="statTotalCount">0 건</div></div>
+        <div class="card green"><h3>해당 부대 평균 오차율</h3><div class="value" id="statAvgError">0 %</div></div>
+        <div class="card orange"><h3>최대 변동 품목군</h3><div class="value" id="statMaxCat">-</div></div>
+        <div class="card" style="border-left-color:#dc2626;"><h3>과거 결품 위험 건수 (확정&gt;예정 사례)</h3><div class="value" id="statOverCount" style="color:#dc2626;">0 건</div></div>
+    </div>
+
+    <div class="main-container">
+        <div class="panel">
+            <h2 style="font-size: 15px; color:#1e3a8a; margin-bottom: 10px;">🔮 엑셀 복붙형 다중 예측기</h2>
+            
+            <div class="controls-row">
+                <div class="radio-group">
+                    <label><input type="radio" name="calcMode" value="total" checked onchange="toggleCalcMode()"> ⚖️ 총 소요량</label>
+                    <label><input type="radio" name="calcMode" value="person" onchange="toggleCalcMode()"> 👥 1인소요량 × 인원</label>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <label style="font-weight:bold;">🏢 부대:</label>
+                    <select id="simUnit" onchange="syncUnitFilters(this.value)" style="width:100px;"></select>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <label style="font-weight:bold; white-space:nowrap;" title="작업자가 historical max 위에 추가로 더 얹는 여유분입니다. 결품0% 기준(historical max) 아래로는 절대 내려가지 않습니다.">🧮 작업자 여유분(buffer):</label>
+                    <input type="number" id="simBuffer" min="0" max="100" step="1" value="0" style="width:60px; text-align:center;" oninput="calculateMultiRows()"> %
+                    <span style="font-size:11px; color:#94a3b8;">(결품0% 기준 위에 추가로 더할 여유분, 기본 0%)</span>
+                </div>
+                <button class="btn btn-success" onclick="calculateMultiRows()">🛡️ 결품0% 생산발주량 산출</button>
+            </div>
+
+            <div style="overflow-x: auto; border: 1px solid #cbd5e1;">
+                <table class="excel-table">
+                    <thead>
+                        <tr>
+                            <th style="width:13%;">급식일</th>
+                            <th style="width:15%;">품명 (목록에서 선택)</th>
+                            <th style="width:9%;">구분(자동)</th>
+                            <th class="col-total" style="width:7%;">총소요량</th>
+                            <th class="col-person hide-col" style="width:7%;">1인소량</th>
+                            <th class="col-person hide-col" style="width:7%;">인원</th>
+                            <th style="width:6%; background:#e2e8f0; color:#334155;">단위</th>
+                            <th style="width:7%; background:#fffbeb;">포장규격</th>
+                            <th style="width:7%; background:#f1f5f9; color:#475569;">부대성향</th>
+                            <th style="width:8%; background:#f0f9ff; color:#0284c7;">참고평균(팩)</th>
+                            <th style="width:12%; background:#fef2f2; color:#dc2626;">🛡️ 생산발주량(결품0%)</th>
+                            <th style="width:8%; background:#fff7ed; color:#ea580c;">참고최대(팩)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="excelGridBody"></tbody>
+                </table>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:10px;">
+                <button class="btn btn-gray" onclick="addGridRow()">+ 5행 추가</button>
+                <button class="btn btn-gray" style="background:#e2e8f0; color:#333;" onclick="exportPredictionExcel()">📥 예측결과 다운로드</button>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <div class="panel" style="margin-bottom:0; background:#fffbeb; border-color:#fde68a;">
+                <h2 style="font-size: 14px; color:#b45309; margin-bottom: 5px;">🔥 부대별 카테고리 변동성</h2>
+                <div class="volatility-list" id="volatilityList"></div>
+            </div>
+
+            <div class="panel" style="margin-bottom:0;">
+                <h2 style="font-size: 14px; color:#1e3a8a; margin-bottom: 10px;">📉 구분별 평균 오차율 추이</h2>
+                <div class="chart-wrapper"><canvas id="dashboardChart"></canvas></div>
+            </div>
+
+            <div class="panel">
+                <h2 style="font-size: 14px; color:#1e3a8a; margin-bottom: 10px;">📋 원본 데이터 로그 (최근 100건 표시)</h2>
+                <div style="display:flex; gap:5px; margin-bottom:10px; flex-wrap:wrap;">
+                    <select id="logFilterUnit" onchange="syncUnitFilters(this.value)"><option value="ALL">부대 전체</option></select>
+                    <select id="logFilterCat" onchange="renderLogTable()"><option value="ALL">구분 전체</option></select>
+                    <select id="logFilterDayType" onchange="renderLogTable()">
+                        <option value="ALL">평/휴일 전체</option>
+                        <option value="WORK">평일만</option>
+                        <option value="HOLI">휴일만</option>
+                    </select>
+                    <input type="text" id="logFilterName" placeholder="품명 검색..." onkeyup="renderLogTable()">
+                </div>
+                <div class="table-wrapper">
+                    <table id="logTable">
+                        <thead>
+                            <tr>
+                                <th>납품일</th>
+                                <th>급식일</th>
+                                <th>부대</th>
+                                <th>구분</th>
+                                <th>품명</th>
+                                <th>예정</th>
+                                <th>확정</th>
+                                <th>오차</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTableBody"><tr><td colspan="8">데이터를 업로드해 주세요.</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <datalist id="itemNameList"></datalist>
+
+    <script>
+        let dbData = []; let chartIdx = null; let specMemory = {}; let unitMemory = {};
+        let indexedDBInstance = null;
+
+        function initIndexedDB(callback) {
+            const request = indexedDB.open("SmartOrderBigDB", 1);
+            request.onupgradeneeded = function(e) {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains("kv_store")) {
+                    db.createObjectStore("kv_store");
+                }
+            };
+            request.onsuccess = function(e) {
+                indexedDBInstance = e.target.result;
+                callback();
+            };
+            request.onerror = function() {
+                alert("대용량 데이터베이스 엔진 시동에 실패했습니다.");
+            };
+        }
+
+        function saveToDB(key, data, callback) {
+            if (!indexedDBInstance) return;
+            const tx = indexedDBInstance.transaction("kv_store", "readwrite");
+            const store = tx.objectStore("kv_store");
+            store.put(data, key);
+            if (callback) tx.oncomplete = () => callback();
+        }
+
+        function loadFromDB(key, callback) {
+            if (!indexedDBInstance) return callback(null);
+            const tx = indexedDBInstance.transaction("kv_store", "readonly");
+            const store = tx.objectStore("kv_store");
+            const req = store.get(key);
+            req.onsuccess = function() { callback(req.result); };
+            req.onerror = function() { callback(null); };
+        }
+
+        window.onload = function() {
+            for(let i=0; i<10; i++) addGridRow(true);
+
+            initIndexedDB(function() {
+                loadFromDB('dbData', function(loadedDb) {
+                    if (loadedDb && loadedDb.length > 0) { dbData = loadedDb; refreshAll(); }
+                });
+                loadFromDB('specMemory', function(loadedSpec) { if (loadedSpec) specMemory = loadedSpec; });
+                loadFromDB('unitMemory', function(loadedUnit) { if (loadedUnit) unitMemory = loadedUnit; });
+            });
+
+            document.getElementById('excelGridBody').addEventListener('paste', handleTablePaste);
+        };
+
+        function isWeekend(dateStr) {
+            if(!dateStr || dateStr === '-') return false;
+            const d = new Date(dateStr);
+            if(isNaN(d.getTime())) return false;
+            const day = d.getDay();
+            return day === 0 || day === 6;
+        }
+
+        function smartParseDate(str) {
+            if(!str) return '';
+            str = str.trim();
+
+            // 한글 표기 "01월 01일" / "1월1일" 등 - 연도 없는 월/일 텍스트
+            const krMatch = str.match(/^(\d{1,2})\s*월\s*(\d{1,2})\s*일?$/);
+            if (krMatch) {
+                const yyyy = 2026;
+                return `${yyyy}-${krMatch[1].padStart(2,'0')}-${krMatch[2].padStart(2,'0')}`;
+            }
+
+            str = str.replace(/[\.\/]/g, '-');
+            const currentYear = 2026;
+
+            if (/^\d{4}$/.test(str)) {
+                return `${currentYear}-${str.substring(0,2)}-${str.substring(2,4)}`;
+            }
+            if (/^\d{8}$/.test(str)) {
+                return `${str.substring(0,4)}-${str.substring(4,6)}-${str.substring(6,8)}`;
+            }
+            if (/^\d{6}$/.test(str)) {
+                return `20${str.substring(0,2)}-${str.substring(2,4)}-${str.substring(4,6)}`;
+            }
+            if (/^\d{1,2}-\d{1,2}$/.test(str)) {
+                const parts = str.split('-');
+                return `${currentYear}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+            }
+            if (/^\d{2,4}-\d{1,2}-\d{1,2}$/.test(str)) {
+                const parts = str.split('-');
+                let yyyy = parts[0];
+                if (yyyy.length === 2) yyyy = '20' + yyyy;
+                return `${yyyy}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+            }
+            return str;
+        }
+
+        function parseExcelDate(val) {
+            if(!val) return '-';
+            if(typeof val === 'number' || !isNaN(Number(val))) {
+                const d = new Date((Number(val) - 25569) * 86400 * 1000);
+                return d.toISOString().split('T')[0];
+            }
+            return smartParseDate(String(val));
+        }
+
+        function toggleCalcMode() {
+            const mode = document.querySelector('input[name="calcMode"]:checked').value;
+            const tCols = document.querySelectorAll('.col-total'); const pCols = document.querySelectorAll('.col-person');
+            if(mode === 'total') { tCols.forEach(el => el.classList.remove('hide-col')); pCols.forEach(el => el.classList.add('hide-col')); } 
+            else { tCols.forEach(el => el.classList.add('hide-col')); pCols.forEach(el => el.classList.remove('hide-col')); }
+        }
+
+        function syncUnitFilters(selectedUnit) {
+            document.getElementById('dashUnit').value = selectedUnit; document.getElementById('simUnit').value = selectedUnit;
+            document.getElementById('logFilterUnit').value = selectedUnit; updateDashboard();
+        }
+
+        function addGridRow(isSingle=false) {
+            const tbody = document.getElementById('excelGridBody');
+            const mode = document.querySelector('input[name="calcMode"]:checked').value;
+            const tClass = mode === 'total' ? '' : 'hide-col'; const pClass = mode === 'person' ? '' : 'hide-col';
+
+            for(let i=0; i<(isSingle?1:5); i++) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
+                            <input type="date" class="grid-date" style="padding:5px; font-size:11px; text-align:center; width:115px;" onchange="calculateMultiRows()">
+                            <span class="row-day-badge day-badge" style="display:none; padding:2px 4px; flex-shrink:0;"></span>
+                        </div>
+                    </td>
+                    <td><input type="text" class="grid-name" list="itemNameList" placeholder="품명 검색/선택" onblur="autoFillMemory(this)" onchange="calculateMultiRows()"></td>
+                    <td><input type="text" class="grid-cat" placeholder="자동"></td>
+                    <td class="col-total ${tClass}"><input type="number" class="grid-req-tot"></td>
+                    <td class="col-person ${pClass}"><input type="number" class="grid-req-per"></td>
+                    <td class="col-person ${pClass}"><input type="number" class="grid-req-cnt"></td>
+                    <td style="background:#f1f5f9;">
+                        <select class="grid-unit">
+                            <option value="kg">kg</option>
+                            <option value="ea">EA(팩)</option>
+                        </select>
+                    </td>
+                    <td style="background:#fffbeb;"><input type="number" class="grid-spec" value="1.0"></td>
+                    <td class="cell-tend">-</td>
+                    <td class="res-min">-</td>
+                    <td class="res-rec">-<div class="cell-src"></div></td>
+                    <td class="res-max">-</td>
+                `;
+                tbody.appendChild(tr);
+            }
+            calculateMultiRows();
+        }
+
+
+
+
+        function autoFillMemory(inputEl) {
+            const name = inputEl.value.trim();
+            if(name) {
+                const tr = inputEl.closest('tr');
+                if(specMemory[name]) tr.querySelector('.grid-spec').value = specMemory[name];
+                if(unitMemory[name]) tr.querySelector('.grid-unit').value = unitMemory[name];
+                
+                if(dbData.length > 0 && !tr.querySelector('.grid-cat').value.trim()) {
+                    const found = dbData.find(d => d.name === name);
+                    if(found) tr.querySelector('.grid-cat').value = found.cat;
+                }
+            }
+        }
+
+        function handleTablePaste(e) {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('Text');
+            const rows = text.split('\n').map(r => r.split('\t'));
+            const activeEl = document.activeElement; if (!activeEl || activeEl.tagName !== 'INPUT') return;
+            const trs = document.getElementById('excelGridBody').children;
+            let currRow = Array.from(trs).indexOf(activeEl.closest('tr'));
+            
+            for (let i = 0; i < rows.length; i++) {
+                if (rows[i].length <= 1 && rows[i][0] === "") continue;
+                if (currRow >= trs.length) addGridRow(true);
+                
+                const visibleInputs = Array.from(trs[currRow].querySelectorAll('input')).filter(inp => !inp.closest('td').classList.contains('hide-col'));
+                
+                for(let j=0; j < rows[i].length && j < visibleInputs.length; j++) {
+                    if(rows[i][j] !== undefined) {
+                        let val = rows[i][j].trim();
+                        if(visibleInputs[j].classList.contains('grid-date')) {
+                            let parsed = smartParseDate(val);
+                            if(parsed && parsed !== '-') visibleInputs[j].value = parsed;
+                        } else {
+                            visibleInputs[j].value = val;
+                        }
+                    }
+                }
+                autoFillMemory(trs[currRow].querySelector('.grid-name'));
+                currRow++;
+            }
+            calculateMultiRows();
+        }
+
+        // 부대명 표기 오염(trailing space, 공백/슬래시 불일치) 정규화
+        // 예: "51군지단 31사단" / "51군지단/31사단" -> "51군지단/31사단" 로 통일
+        function normalizeUnitName(raw) {
+            let u = String(raw).trim();
+            u = u.replace(/\s+/g, '/');   // 부대명 중간 공백을 슬래시로 통일 (예: "51군지단 31사단" -> "51군지단/31사단")
+            u = u.replace(/\/+/g, '/');   // 슬래시 중복 제거
+            return u;
+        }
+
+        document.getElementById('excelUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0]; if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const ws = XLSX.read(data, {type: 'array'}).Sheets[XLSX.read(data, {type: 'array'}).SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ""});
+
+                    let hIdx = 0, maxScore = 0;
+                    for(let i=0; i<Math.min(json.length, 10); i++) {
+                        const rowStr = json[i].join(''); let score = 0;
+                        if(rowStr.includes('품명')) score++; if(rowStr.includes('예정')) score++; if(rowStr.includes('확정')) score++;
+                        if(score > maxScore) { maxScore = score; hIdx = i; }
+                    }
+                    const headers = json[hIdx].map(h => String(h).replace(/\s/g, ''));
+
+                    // 예정량/확정량은 (개)/(kg) 두 컬럼이 같이 존재할 수 있음.
+                    // 품목별 1개당 중량이 달라 "개" 기준 오차율은 실제 결품 위험과 다른 신호를 줄 수 있으므로,
+                    // kg 컬럼이 있으면 반드시 kg를 우선 사용한다 (findIndex의 첫 일치 컬럼에 의존하지 않음).
+                    const findCol = (keyword, preferUnit) => {
+                        const candidates = headers.reduce((acc, h, idx) => { if(h.includes(keyword) && !h.includes('순번')) acc.push({h, idx}); return acc; }, []);
+                        if (candidates.length === 0) return -1;
+                        const preferred = candidates.find(c => c.h.includes(preferUnit));
+                        return preferred ? preferred.idx : candidates[0].idx;
+                    };
+
+                    const map = {
+                        delDate: headers.findIndex(h => h.includes('납품')),
+                        mealDate: headers.findIndex(h => h.includes('급식')),
+                        date: headers.findIndex(h => h.includes('일자')),
+                        name: headers.findIndex(h => h.includes('품명')),
+                        cat: headers.findIndex(h => h.includes('구분')),
+                        unit: headers.findIndex(h => h.includes('부대')),
+                        plan: findCol('예정', 'kg'),
+                        conf: findCol('확정', 'kg')
+                    };
+
+                    const newList = [];
+                    let skippedInvalid = 0;
+                    for(let i = hIdx + 1; i < json.length; i++) {
+                        const row = json[i]; if(!row || !row[map.name]) continue;
+                        const p = parseFloat(row[map.plan]);
+                        const c = parseFloat(row[map.conf]);
+                        // 예정량이 없거나 0 이하이면 오차율 계산이 불가능(0으로 나누기)하므로 제외
+                        if (!isFinite(p) || p <= 0 || !isFinite(c) || c < 0) { skippedInvalid++; continue; }
+
+                        let dDate = map.delDate !== -1 ? parseExcelDate(row[map.delDate]) : (map.date !== -1 ? parseExcelDate(row[map.date]) : '-');
+                        let mDate = map.mealDate !== -1 ? parseExcelDate(row[map.mealDate]) : (map.date !== -1 ? parseExcelDate(row[map.date]) : '-');
+                        let isHoli = mDate !== '-' ? isWeekend(mDate) : false;
+
+                        newList.push({
+                            delDate: dDate, mealDate: mDate, isHoliday: isHoli,
+                            name: String(row[map.name]).trim(), cat: map.cat!==-1 ? String(row[map.cat]).trim() : '기타',
+                            unit: map.unit!==-1 ? normalizeUnitName(row[map.unit]) : '공통',
+                            plan: p, conf: c, rate: ((c-p)/p)*100
+                        });
+                    }
+                    dbData = dbData.concat(newList);
+                    saveToDB('dbData', dbData, function() {
+                        refreshAll();
+                        alert(`✅ 업로드 완료! 누적 ${dbData.length.toLocaleString()}건 (이번 업로드 ${newList.length}건, 결측/이상치 제외 ${skippedInvalid}건)`);
+                    });
+                } catch(err) { alert("오류: " + err.message); }
+            }; reader.readAsArrayBuffer(file);
+        });
+
+        function refreshAll() {
+            if(dbData.length===0) return;
+            const units = [...new Set(dbData.map(d=>d.unit))].sort(); const cats = [...new Set(dbData.map(d=>d.cat))].sort();
+            const names = [...new Set(dbData.map(d=>d.name))].sort();
+            const fillSel = (id, arr, label) => { const el = document.getElementById(id); el.innerHTML = `<option value="ALL">${label} 전체</option>`; arr.forEach(v => el.add(new Option(v,v))); };
+            fillSel('dashUnit', units, '부대'); fillSel('simUnit', units, '부대'); fillSel('logFilterUnit', units, '부대'); fillSel('logFilterCat', cats, '구분');
+
+            // 품명 자동완성 목록(datalist) 채우기 — 업로드된 데이터의 실제 품명만 선택 가능하도록
+            const nameList = document.getElementById('itemNameList');
+            nameList.innerHTML = names.map(n => `<option value="${n}"></option>`).join('');
+
+            // 기준 연도 셀렉트 채우기 — 데이터에 실제 존재하는 연도 + 향후 1년
+            refreshYearOptions();
+
+            updateDashboard();
+        }
+
+        function refreshYearOptions() {
+            const yearSel = document.getElementById('baseYear');
+            const currentSelection = yearSel.value;
+            const yearsInData = new Set();
+            dbData.forEach(d => {
+                [d.mealDate, d.delDate].forEach(dt => {
+                    if (dt && dt !== '-' && /^\d{4}-\d{2}-\d{2}$/.test(dt)) yearsInData.add(parseInt(dt.substring(0,4)));
+                });
+            });
+            const thisYear = new Date().getFullYear();
+            yearsInData.add(thisYear); yearsInData.add(thisYear + 1);
+            const sortedYears = [...yearsInData].sort();
+            yearSel.innerHTML = `<option value="">(원본 그대로)</option>` + sortedYears.map(y => `<option value="${y}">${y}년</option>`).join('');
+            if (currentSelection) yearSel.value = currentSelection;
+        }
+
+        // 연도 선택 시: 업로드된 모든 데이터의 월/일을 그 연도로 강제 재해석
+        function applyBaseYear(yearStr) {
+            if (!yearStr) { updateDashboard(); return; }
+            const year = parseInt(yearStr);
+            const reYear = (dateStr) => {
+                if (!dateStr || dateStr === '-' || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+                const [, mm, dd] = dateStr.split('-');
+                return `${year}-${mm}-${dd}`;
+            };
+            dbData.forEach(d => {
+                d.mealDate = reYear(d.mealDate);
+                d.delDate = reYear(d.delDate);
+                d.isHoliday = d.mealDate !== '-' ? isWeekend(d.mealDate) : d.isHoliday;
+            });
+            saveToDB('dbData', dbData, function() { updateDashboard(); });
+        }
+
+        function updateDashboard() {
+            if(dbData.length===0) return;
+            const targetUnit = document.getElementById('dashUnit').value;
+            const dashData = targetUnit === 'ALL' ? dbData : dbData.filter(d => d.unit === targetUnit);
+
+            document.getElementById('statTotalCount').innerText = dbData.length.toLocaleString() + " 건";
+            document.getElementById('statAvgError').innerText = dashData.length > 0 ? Math.round(dashData.reduce((a,c)=>a+Math.abs(c.rate),0)/dashData.length) + " %" : "0 %";
+
+            const overCount = dashData.filter(d => d.rate > 0).length;
+            document.getElementById('statOverCount').innerText = overCount.toLocaleString() + " 건";
+
+            const cats = [...new Set(dashData.map(d=>d.cat))].sort();
+            const volDiv = document.getElementById('volatilityList');
+            let html = ''; let maxVol = -1; let maxCat = '-';
+
+            if(dashData.length === 0) {
+                volDiv.innerHTML = '<div style="padding:10px; color:#64748b;">해당 부대의 데이터가 없습니다.</div>';
+                document.getElementById('statMaxCat').innerText = "-";
+            } else {
+                cats.forEach(c => {
+                    const rates = dashData.filter(d => d.cat === c).map(d => d.rate); if(rates.length === 0) return;
+                    const mean = rates.reduce((a,b)=>a+b,0) / rates.length;
+                    const std = Math.sqrt(rates.reduce((a,b)=>a+Math.pow(b-mean,2),0) / rates.length);
+                    if(std > maxVol) { maxVol = std; maxCat = c; }
+                    let colorClass = std >= 20 ? 'std-danger' : (std >= 10 ? 'std-warn' : 'std-safe');
+                    const tend = classifyTendency(rates);
+                    html += `<div class="vol-item"><div class="cat-name">${c}</div><div class="std-val ${colorClass}">${std.toFixed(1)}</div><span class="tend-badge ${tend.cls}" style="margin-top:4px;">${tend.label}</span></div>`;
+                });
+                volDiv.innerHTML = html; document.getElementById('statMaxCat').innerText = `${maxCat} (${Math.round(maxVol)} 변동)`;
+            }
+            renderLogTable(); renderChart(dashData); calculateMultiRows();
+        }
+
+        // 부대별 성향 분류 (참고용 표시 전용 - 실제 발주량 계산에는 영향 없음)
+        function classifyTendency(rates) {
+            if (!rates || rates.length === 0) return { label: '데이터없음', cls: 'tend-unknown' };
+            const mean = rates.reduce((a,b)=>a+b,0) / rates.length;
+            const std = Math.sqrt(rates.reduce((a,b)=>a+Math.pow(b-mean,2),0) / rates.length);
+            if (std >= 20) return { label: '들쭉날쭉', cls: 'tend-volatile' };
+            if (mean >= 8) return { label: '과다확정', cls: 'tend-over' };
+            if (mean <= -8) return { label: '과소확정', cls: 'tend-under' };
+            return { label: '안정적', cls: 'tend-stable' };
+        }
+
+        // 품목×부대 우선, 부족하면 구분×부대로 폴백하여 max rate(결품0% 보장 기준)와 표준편차 산출
+        function resolveMaxRate(name, cat, targetUnit) {
+            // 1순위: 해당 부대 + 해당 품목 (targetUnit이 ALL이면 전체 부대 중 최악값으로 보수적 적용)
+            let pool = targetUnit === 'ALL'
+                ? dbData.filter(d => d.name === name)
+                : dbData.filter(d => d.unit === targetUnit && d.name === name);
+
+            if (pool.length >= 2) {
+                const rates = pool.map(d => d.rate);
+                const mean = rates.reduce((a,b)=>a+b,0)/rates.length;
+                const std = Math.sqrt(rates.reduce((a,b)=>a+Math.pow(b-mean,2),0)/rates.length) || 0;
+                return { maxRate: Math.max(...rates, 0), mean, std, source: 'direct', rates, n: pool.length };
+            }
+
+            // 2순위: 해당 부대 + 같은 구분(카테고리) 전체 품목으로 폴백
+            if (cat) {
+                let catPool = targetUnit === 'ALL'
+                    ? dbData.filter(d => d.cat === cat)
+                    : dbData.filter(d => d.unit === targetUnit && d.cat === cat);
+
+                if (catPool.length >= 2) {
+                    const rates = catPool.map(d => d.rate);
+                    const mean = rates.reduce((a,b)=>a+b,0)/rates.length;
+                    const std = Math.sqrt(rates.reduce((a,b)=>a+Math.pow(b-mean,2),0)/rates.length) || 0;
+                    // 직접 데이터가 1건 있었다면 그 max도 같이 반영(보수적으로 더 큰 쪽 채택)
+                    let directMax = pool.length > 0 ? Math.max(...pool.map(d=>d.rate)) : -Infinity;
+                    return { maxRate: Math.max(...rates, directMax, 0), mean, std, source: 'fallback', rates, n: catPool.length };
+                }
+            }
+
+            // 데이터 전무: 직접 데이터 1건만 있으면 그것만 사용, 아예 없으면 0
+            if (pool.length === 1) {
+                return { maxRate: Math.max(pool[0].rate, 0), mean: pool[0].rate, std: 0, source: 'direct', rates: [pool[0].rate], n: 1 };
+            }
+            return { maxRate: 0, mean: 0, std: 0, source: 'none', rates: [], n: 0 };
+        }
+
+        function calculateMultiRows() {
+            const trs = document.getElementById('excelGridBody').children;
+            const targetUnit = document.getElementById('simUnit').value;
+            const bufferPct = parseFloat(document.getElementById('simBuffer').value) || 0;
+            const mode = document.querySelector('input[name="calcMode"]:checked').value;
+
+            for (let tr of trs) {
+                let rowDateInput = tr.querySelector('.grid-date');
+                let rawDateVal = rowDateInput.value.trim(); // <input type="date"> 값은 항상 yyyy-mm-dd
+
+                let isRowHoli = false;
+                const rowBadge = tr.querySelector('.row-day-badge');
+
+                if(rawDateVal) {
+                    isRowHoli = isWeekend(rawDateVal);
+                    rowBadge.style.display = 'inline-block';
+                    rowBadge.className = 'row-day-badge day-badge ' + (isRowHoli ? 'day-holi' : 'day-work');
+                    rowBadge.innerText = isRowHoli ? '휴' : '평';
+                } else {
+                    rowBadge.style.display = 'none';
+                }
+
+                const name = tr.querySelector('.grid-name').value.trim();
+                let cat = tr.querySelector('.grid-cat').value.trim();
+                const spec = parseFloat(tr.querySelector('.grid-spec').value) || 1.0;
+                const unitType = tr.querySelector('.grid-unit').value;
+
+                let req = mode === 'total' ? parseFloat(tr.querySelector('.grid-req-tot').value) || 0 : (parseFloat(tr.querySelector('.grid-req-per').value)||0) * (parseFloat(tr.querySelector('.grid-req-cnt').value)||0);
+                if (!name || req <= 0) {
+                    tr.querySelector('.res-min').innerText = '-';
+                    tr.querySelector('.res-rec').innerHTML = '-';
+                    tr.querySelector('.res-max').innerText = '-';
+                    tr.querySelector('.cell-tend').innerHTML = '-';
+                    continue;
+                }
+
+                specMemory[name] = spec; unitMemory[name] = unitType;
+                const calcDivisor = (unitType === 'ea') ? 1.0 : spec;
+
+                // 카테고리 자동완성 (구분 입력 안돼있으면 dbData에서 추정)
+                if (!cat) {
+                    const guess = dbData.find(d => d.name === name);
+                    if (guess) { cat = guess.cat; tr.querySelector('.grid-cat').value = cat; }
+                }
+
+                // 결품0% 보장 핵심 산출: 품목×부대 우선, 부족시 구분×부대 폴백
+                const resolved = resolveMaxRate(name, cat, targetUnit);
+                const { maxRate, mean, std, source, rates, n } = resolved;
+
+                // 참고 평균선 (발주 기준 아님, 단순 참고용)
+                const refAvgQty = Math.round((req * (1 + (mean/100))) / calcDivisor);
+
+                // 결품0% 기준선(historical max) 위에 작업자 여유분(buffer%)을 추가로 더함
+                // buffer는 항상 0 이상으로 가산되므로 historical max 밑으로 내려가는 일은 구조적으로 없음
+                const finalRate = maxRate + Math.max(bufferPct, 0);
+                const prodOrderQty = Math.round((req * (1 + (finalRate/100))) / calcDivisor);
+
+                // 참고 최대치(순수 historical max, buffer 적용 전 참고용)
+                const refMaxQty = Math.round((req * (1 + (maxRate/100))) / calcDivisor);
+
+                tr.querySelector('.res-min').innerText = refAvgQty.toLocaleString();
+                tr.querySelector('.res-max').innerText = refMaxQty.toLocaleString();
+
+                const recCell = tr.querySelector('.res-rec');
+                const srcTagHtml = source === 'direct'
+                    ? `<span class="src-tag src-direct">품목×부대 직접(n=${n})</span>`
+                    : source === 'fallback'
+                        ? `<span class="src-tag src-fallback">구분×부대 폴백(n=${n})</span>`
+                        : `<span class="src-tag src-none">데이터없음</span>`;
+                const bufferTagHtml = bufferPct > 0 ? `<span class="src-tag" style="background:#dbeafe; color:#1d4ed8;">+여유분 ${bufferPct}%</span>` : '';
+                recCell.innerHTML = `${prodOrderQty.toLocaleString()}${srcTagHtml}${bufferTagHtml}`;
+
+                // 부대 성향 뱃지 (참고용)
+                const tend = classifyTendency(rates);
+                tr.querySelector('.cell-tend').innerHTML = `<span class="tend-badge ${tend.cls}">${tend.label}</span>`;
+            }
+
+            saveToDB('specMemory', specMemory);
+            saveToDB('unitMemory', unitMemory);
+        }
+
+        function renderLogTable() {
+            const u = document.getElementById('logFilterUnit').value; 
+            const c = document.getElementById('logFilterCat').value;
+            const dt = document.getElementById('logFilterDayType').value;
+            const n = document.getElementById('logFilterName').value.toLowerCase();
+            
+            const filtered = dbData.filter(d => {
+                const passU = (u==='ALL' || d.unit===u);
+                const passC = (c==='ALL' || d.cat===c);
+                const passN = (n==='' || d.name.toLowerCase().includes(n));
+                const passDt = (dt==='ALL') || (dt==='WORK' && !d.isHoliday) || (dt==='HOLI' && d.isHoliday);
+                return passU && passC && passN && passDt;
+            });
+
+            // 핵심 수정 포인트: d.mealDate가 '-' 일 때는 뱃지(badgeHtml)를 비웁니다.
+            document.getElementById('logTableBody').innerHTML = filtered.slice(0,100).map(d => {
+                const badgeHtml = d.mealDate !== '-' 
+                    ? `<span class="day-badge ${d.isHoliday ? 'day-holi' : 'day-work'}">${d.isHoliday ? '휴' : '평'}</span>`
+                    : '';
+                return `
+                <tr>
+                    <td>${d.delDate}</td>
+                    <td>${d.mealDate} ${badgeHtml}</td>
+                    <td>${d.unit}</td><td>${d.cat}</td>
+                    <td style="text-align:left;font-weight:600;">${d.name}</td>
+                    <td>${Math.round(d.plan).toLocaleString()}</td>
+                    <td>${Math.round(d.conf).toLocaleString()}</td>
+                    <td style="font-weight:bold; color:${d.rate>0?'#ea580c':'#2563eb'}">${d.rate>0?'+':''}${Math.round(d.rate)}%</td>
+                </tr>
+                `;
+            }).join('');
+        }
+
+        function renderChart(dashData) {
+            const ctx = document.getElementById('dashboardChart').getContext('2d'); if(chartIdx) chartIdx.destroy();
+            if(!dashData || dashData.length === 0) return;
+            const catMap = {}; dashData.forEach(d => { if(!catMap[d.cat]) catMap[d.cat] = []; catMap[d.cat].push(d.rate); });
+            const labels = [], values = []; for(let c in catMap) { labels.push(c); values.push(catMap[c].reduce((a,b)=>a+b,0)/catMap[c].length); }
+            chartIdx = new Chart(ctx, { type: 'bar', data: { labels: labels.slice(0, 10), datasets: [{ label: '구분별 평균 오차율(%)', data: values.slice(0, 10), backgroundColor: values.slice(0,10).map(v=>v>0?'#fb923c':'#60a5fa') }] }, options: { responsive: true, maintainAspectRatio: false } });
+        }
+
+        function exportPredictionExcel() {
+            const mode = document.querySelector('input[name="calcMode"]:checked').value;
+            const rows = [["급식일", "품명", "구분", mode==='total'?"총소요량":"1인소요량", mode==='total'?"-":"식수인원", "단위", "포장규격", "부대성향(참고)", "참고평균", "🛡️생산발주량(결품0%)", "산출근거", "적용 여유분", "참고최대"]];
+            for(let tr of document.getElementById('excelGridBody').children) {
+                const name = tr.querySelector('.grid-name').value; if(!name) continue;
+                let rowDate = tr.querySelector('.grid-date').value || '-';
+
+                const recCell = tr.querySelector('.res-rec');
+                const recQtyText = (recCell.childNodes[0] && recCell.childNodes[0].nodeValue) ? recCell.childNodes[0].nodeValue.trim().replace(/,/g, '') : '-';
+                const srcTags = recCell.querySelectorAll('.src-tag');
+                const srcText = srcTags[0] ? srcTags[0].innerText : '-';
+                const bufferText = srcTags[1] ? srcTags[1].innerText : '0%';
+
+                const tendCell = tr.querySelector('.cell-tend');
+                const tendBadge = tendCell ? tendCell.querySelector('.tend-badge') : null;
+                const tendText = tendBadge ? tendBadge.innerText : '-';
+
+                rows.push([
+                    rowDate, name, tr.querySelector('.grid-cat').value,
+                    mode==='total' ? tr.querySelector('.grid-req-tot').value : tr.querySelector('.grid-req-per').value,
+                    mode==='total' ? "-" : tr.querySelector('.grid-req-cnt').value,
+                    tr.querySelector('.grid-unit').value, tr.querySelector('.grid-spec').value,
+                    tendText,
+                    tr.querySelector('.res-min').innerText.replace(/,/g, ''),
+                    recQtyText, srcText, bufferText,
+                    tr.querySelector('.res-max').innerText.replace(/,/g, '')
+                ]);
+            }
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "생산발주량산출"); XLSX.writeFile(wb, "제조사생산발주량_v11.xlsx");
+        }
+
+        function clearData() { 
+            if(confirm("모든 원본 누적 데이터를 완전히 초기화하시겠습니까?")) { 
+                if(!indexedDBInstance) return;
+                const tx = indexedDBInstance.transaction("kv_store", "readwrite");
+                tx.objectStore("kv_store").clear();
+                tx.oncomplete = function() { alert("초기화되었습니다."); location.reload(); };
+            } 
+        }
+    </script>
+</body>
+</html>
